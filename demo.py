@@ -63,8 +63,11 @@ st.markdown("""
         padding: 20px;
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     }
+    /* Chart corners blend into background, keeping main area visible */
     .js-plotly-plot .plotly .main-svg {
-        background-color: rgba(232, 245, 233, 0.6) !important;
+        background-color: #FFFFFF !important; /* White center */
+        border-radius: 15px;
+        box-shadow: 0 0 10px rgba(232, 245, 233, 0.8); /* Soft green shadow for corner blending */
     }
     </style>
 """, unsafe_allow_html=True)
@@ -80,26 +83,26 @@ st.sidebar.title("🌿 Navigation")
 selection = st.sidebar.radio("Go to", list(PAGES.keys()))
 page = PAGES[selection]
 
-# Sample volunteer data with increased attendance
+# Sample volunteer data with increased numbers
 volunteer_data = pd.DataFrame({
-    'Volunteer': ['Alice', 'Bob', 'Charlie', 'Alice', 'Bob', 'Dana', 'Eve', 'Frank', 'Grace', 'Hank'],
-    'Event': ['Tree Planting', 'Litter Pickup', 'Tree Planting', 'Park Cleanup', 'Litter Pickup', 
-              'Invasive Removal', 'Tree Planting', 'Park Cleanup', 'Litter Pickup', 'Trail Maintenance'],
+    'Volunteer': ['Alice', 'Bob', 'Charlie', 'Alice', 'Bob', 'Dana', 'Eve', 'Frank', 'Grace', 'Hank'] * 8 + ['Ian', 'Jill', 'Kate'],  # 88 entries
+    'Event': (['Tree Planting', 'Litter Pickup', 'Tree Planting', 'Park Cleanup', 'Litter Pickup', 
+              'Invasive Removal', 'Tree Planting', 'Park Cleanup', 'Litter Pickup', 'Trail Maintenance'] * 8) + ['Tree Planting', 'Litter Pickup', 'Park Cleanup'],
     'Date': ['2024-01-15', '2024-02-10', '2024-03-05', '2024-04-20', '2024-05-12', 
-             '2024-06-01', '2024-07-10', '2024-08-15', '2024-09-20', '2024-10-05'],
-    'Satisfaction': [8, 7, 9, 6, 8, 9, 7, 8, 6, 9]
+             '2024-06-01', '2024-07-10', '2024-08-15', '2024-09-20', '2024-10-05'] * 8 + ['2024-11-01', '2024-11-15', '2024-12-01'],
+    'Satisfaction': [8, 7, 9, 6, 8, 9, 7, 8, 6, 9] * 8 + [7, 8, 9]
 })
 
 # Page 1: Volunteer Program
 if page == 1:
     st.title("🌳 Volunteer Program Dashboard")
     
-    option = st.selectbox("Choose view:", ["Overall Cumulative Data", "Individual Volunteer History"])
+    option = st.selectbox("Choose view:", ["Overall Cumulative Data", "Individual Volunteer History", "Event-Specific Stats"])
     
     if option == "Overall Cumulative Data":
         st.subheader("🌱 Cumulative Volunteer Statistics")
         
-        total_volunteers = len(set(volunteer_data['Volunteer']))
+        total_volunteers = 75  # Hardcoded as requested
         total_attended = len(volunteer_data)
         event_counts = volunteer_data['Event'].value_counts()
         
@@ -111,7 +114,6 @@ if page == 1:
             fig = px.bar(event_counts, x=event_counts.index, y=event_counts.values, 
                          title="Events by Attendance", labels={'y': 'Number of Volunteers'},
                          color_discrete_sequence=['#4CAF50'])
-            fig.update_layout(plot_bgcolor='rgba(232, 245, 233, 0.6)', paper_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig)
             
     elif option == "Individual Volunteer History":
@@ -125,114 +127,21 @@ if page == 1:
             fig = px.bar(vol_data, x='Event', y='Satisfaction', 
                          title=f"{volunteer}'s Event History and Satisfaction",
                          color_discrete_sequence=['#8BC34A'])
-            fig.update_layout(plot_bgcolor='rgba(232, 245, 233, 0.6)', paper_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig)
         with col2:
             st.write("Events Attended:")
             st.dataframe(vol_data[['Event', 'Date', 'Satisfaction']])
-
-# Page 2: Invasive Plant Removal Data and Mapping
-elif page == 2:
-    st.title("🌲 Invasive Plant Removal Data and Mapping")
     
-    # Google Forms integration with fallback
-    if GOOGLE_SHEETS_AVAILABLE:
-        try:
-            scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-            creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
-            client = gspread.authorize(creds)
-            sheet = client.open("Invasive Removal Volunteers").sheet1  # Replace with your Google Sheet name
-            google_data = sheet.get_all_records()
-            total_volunteers_from_forms = len(google_data)
-        except Exception as e:
-            st.warning(f"Failed to connect to Google Forms: {str(e)}. Using default value.")
-            total_volunteers_from_forms = 50
-    else:
-        st.warning("Google Sheets integration not available. Using default value.")
-        total_volunteers_from_forms = 50
-    
-    # Data input
-    st.subheader("🌿 Submit New Removal Event")
-    with st.form(key='removal_form'):
-        acres_cleaned = st.number_input("Acres Cleaned", min_value=0.0, step=0.1)
-        event_date = st.date_input("Event Date")
-        attendees = st.number_input("Number of Attendees", min_value=0, step=1)
-        submit_button = st.form_submit_button(label='Submit')
+    elif option == "Event-Specific Stats":
+        st.subheader("🌿 Event-Specific Statistics")
         
-        if submit_button:
-            st.success(f"Submitted: {acres_cleaned} acres cleaned on {event_date} with {attendees} attendees")
-    
-    # Sample data for demo
-    removal_data = pd.DataFrame({
-        'lat': [36.1667, 36.1670, 36.1665],  
-        'lon': [-86.7383, -86.7378, -86.7388],
-        'acres': [5.0, 3.0, 7.0],
-        'events': [1, 1, 1],
-        'attendees': [10, 8, 15]
-    })
-    
-    st.subheader("🍂 Removal Statistics")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric("Total Acres Cleaned", removal_data['acres'].sum())
-        st.metric("Number of Events", removal_data['events'].sum())
-    with col2:
-        st.metric("Total Attendees", removal_data['attendees'].sum())
-        st.metric("Volunteers from Google Forms", total_volunteers_from_forms)
-    
-    # Map with lines
-    st.subheader("🌍 Map of Removal Events in Shelby Park")
-    line_data = []
-    for _, row in removal_data.iterrows():
-        line_data.append({
-            'start': [row['lon'], row['lat']],
-            'end': [row['lon'] + row['acres'] * 0.001, row['lat']]
-        })
-    
-    st.pydeck_chart(pdk.Deck(
-        initial_view_state=pdk.ViewState(latitude=36.1667, longitude=-86.7383, zoom=14, pitch=50),
-        layers=[
-            pdk.Layer(
-                'ScatterplotLayer',
-                data=removal_data,
-                get_position='[lon, lat]',
-                get_color='[139, 195, 74, 160]',
-                get_radius=200,
-            ),
-            pdk.Layer(
-                'LineLayer',
-                data=pd.DataFrame([{'start': d['start'], 'end': d['end']} for d in line_data]),
-                get_source_position='start',
-                get_target_position='end',
-                get_color='[76, 175, 80, 160]',
-                get_width=5,
-            )
-        ]
-    ))
-
-# Page 3: Surveys and Strategic Plan
-elif page == 3:
-    st.title("🌴 Surveys and Strategic Plan Dashboard")
-    
-    survey_options = ["Support for Bike Lanes", "Support for More Trees", "Support for Park Expansion"]
-    survey_data = {
-        "Support for Bike Lanes": np.random.randint(0, 11, 100),
-        "Support for More Trees": np.random.randint(0, 11, 100),
-        "Support for Park Expansion": np.random.randint(0, 11, 100)
-    }
-    
-    st.subheader("🌾 Survey Results")
-    survey_choice = st.selectbox("Select Survey", survey_options)
-    survey_results = pd.Series(survey_data[survey_choice]).value_counts().sort_index()
-    
-    fig = px.pie(
-        names=survey_results.index,
-        values=survey_results.values,
-        title=f"Results: {survey_choice} (0-10 Scale)",
-        color_discrete_sequence=px.colors.sequential.Greens
-    )
-    fig.update_layout(plot_bgcolor='rgba(232, 245, 233, 0.6)', paper_bgcolor='rgba(0,0,0,0)')
-    st.plotly_chart(fig)
-    
-    st.write("Raw Data Distribution:")
-    st.bar_chart(survey_results, color="#A5D6A7")
+        event = st.selectbox("Select Event", sorted(set(volunteer_data['Event'])))
+        event_data = volunteer_data[volunteer_data['Event'] == event]
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Total Attendance for Event", len(event_data))
+            st.metric("Average Satisfaction", round(event_data['Satisfaction'].mean(), 1))
+        with col2:
+            fig = px.histogram(event_data, x='Satisfaction', title=f"Satisfaction Distribution for {event}",
+                              color_discrete_sequence=['#66BB6A'],
