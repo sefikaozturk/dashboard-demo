@@ -1,5 +1,7 @@
-streamlit==1.32.0  # Or the version you're using locally
-pandas==2.2.1      # Or your local version
-numpy==1.26.4      # Or your local version
-pydeck==0.8.0      # Or your local version
-plotly==5.20.0     # Required for plotly.express
+streamlit==1.32.0
+pandas==2.2.1
+numpy==1.26.4
+pydeck==0.8.0
+plotly==5.20.0
+gspread==5.12.0
+oauth2client==4.1.3
