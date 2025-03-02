@@ -3,57 +3,76 @@ import pandas as pd
 import numpy as np
 import pydeck as pdk
 import plotly.express as px
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
 # Must be the first Streamlit command
 st.set_page_config(page_title="East Nashville Parks Dashboard", layout="wide")
 
-# Custom CSS for styling
+# Enhanced Custom CSS for styling
 st.markdown("""
     <style>
     /* Light green background for the entire app */
     .stApp {
         background-color: #E8F5E9; /* Light green */
+        font-family: 'Arial', sans-serif;
     }
     
-    /* Sidebar styling with a forest green tone */
+    /* Sidebar with gradient forest theme */
     .css-1d391kg {
-        background-color: #4CAF50; /* Forest green */
+        background: linear-gradient(to bottom, #4CAF50, #2E7D32); /* Forest green gradient */
         color: white;
+        border-radius: 10px;
+        padding: 10px;
     }
     .css-1d391kg .stRadio > label {
         color: white;
+        font-weight: bold;
     }
     
-    /* Headers with earthy brown */
+    /* Headers with elegant earthy tones */
     h1, h2, h3 {
-        color: #5D4037; /* Earthy brown */
+        color: #4A2F1F; /* Richer brown */
         font-family: 'Georgia', serif;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
     }
     
-    /* Buttons with a natural green */
+    /* Buttons with natural elegance */
     .stButton>button {
         background-color: #81C784; /* Medium green */
         color: white;
-        border: none;
-        border-radius: 5px;
+        border: 2px solid #4CAF50;
+        border-radius: 8px;
+        padding: 8px 16px;
+        font-weight: bold;
+        transition: all 0.3s ease;
     }
     .stButton>button:hover {
-        background-color: #66BB6A; /* Slightly darker green */
+        background-color: #66BB6A; /* Darker green */
+        transform: scale(1.05);
     }
     
-    /* Metric boxes with subtle leaf-like styling */
+    /* Metric boxes with refined styling */
     .stMetric {
-        background-color: #F1F8E9; /* Very light green */
+        background-color: rgba(241, 248, 233, 0.8); /* Semi-transparent light green */
         border: 1px solid #A5D6A7;
-        border-radius: 5px;
-        padding: 10px;
+        border-radius: 10px;
+        padding: 15px;
+        box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
     }
     
-    /* Add a subtle leaf pattern to the main content */
+    /* Main content with subtle leaf pattern and shadow */
     .main .block-container {
         background-image: url('https://www.transparenttextures.com/patterns/green-leaves.png');
         background-size: 200px;
-        opacity: 0.9;
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Chart backgrounds blending with app */
+    .js-plotly-plot .plotly .main-svg {
+        background-color: rgba(232, 245, 233, 0.6) !important; /* Semi-transparent to blend */
     }
     </style>
 """, unsafe_allow_html=True)
@@ -65,17 +84,19 @@ PAGES = {
     "Surveys and Strategic Plan": 3
 }
 
-# Sidebar for page selection with nature emoji
+# Sidebar for page selection
 st.sidebar.title("🌿 Navigation")
 selection = st.sidebar.radio("Go to", list(PAGES.keys()))
 page = PAGES[selection]
 
-# Sample data (replace with real data sources as needed)
+# Sample volunteer data with increased attendance
 volunteer_data = pd.DataFrame({
-    'Volunteer': ['Alice', 'Bob', 'Charlie', 'Alice', 'Bob'],
-    'Event': ['Tree Planting', 'Litter Pickup', 'Tree Planting', 'Park Cleanup', 'Litter Pickup'],
-    'Date': ['2024-01-15', '2024-02-10', '2024-03-05', '2024-04-20', '2024-05-12'],
-    'Satisfaction': [8, 7, 9, 6, 8]
+    'Volunteer': ['Alice', 'Bob', 'Charlie', 'Alice', 'Bob', 'Dana', 'Eve', 'Frank', 'Grace', 'Hank'],
+    'Event': ['Tree Planting', 'Litter Pickup', 'Tree Planting', 'Park Cleanup', 'Litter Pickup', 
+              'Invasive Removal', 'Tree Planting', 'Park Cleanup', 'Litter Pickup', 'Trail Maintenance'],
+    'Date': ['2024-01-15', '2024-02-10', '2024-03-05', '2024-04-20', '2024-05-12', 
+             '2024-06-01', '2024-07-10', '2024-08-15', '2024-09-20', '2024-10-05'],
+    'Satisfaction': [8, 7, 9, 6, 8, 9, 7, 8, 6, 9]
 })
 
 # Page 1: Volunteer Program
@@ -97,8 +118,9 @@ if page == 1:
             st.metric("Total Attendance", total_attended)
         with col2:
             fig = px.bar(event_counts, x=event_counts.index, y=event_counts.values, 
-                        title="Events by Attendance", labels={'y': 'Number of Volunteers'},
-                        color_discrete_sequence=['#4CAF50'])  # Forest green bars
+                         title="Events by Attendance", labels={'y': 'Number of Volunteers'},
+                         color_discrete_sequence=['#4CAF50'])
+            fig.update_layout(plot_bgcolor='rgba(232, 245, 233, 0.6)', paper_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig)
             
     elif option == "Individual Volunteer History":
@@ -110,8 +132,9 @@ if page == 1:
         col1, col2 = st.columns(2)
         with col1:
             fig = px.bar(vol_data, x='Event', y='Satisfaction', 
-                        title=f"{volunteer}'s Event History and Satisfaction",
-                        color_discrete_sequence=['#8BC34A'])  # Light green bars
+                         title=f"{volunteer}'s Event History and Satisfaction",
+                         color_discrete_sequence=['#8BC34A'])
+            fig.update_layout(plot_bgcolor='rgba(232, 245, 233, 0.6)', paper_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig)
         with col2:
             st.write("Events Attended:")
@@ -120,6 +143,18 @@ if page == 1:
 # Page 2: Invasive Plant Removal Data and Mapping
 elif page == 2:
     st.title("🌲 Invasive Plant Removal Data and Mapping")
+    
+    # Google Forms integration (example setup)
+    try:
+        scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+        creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
+        client = gspread.authorize(creds)
+        sheet = client.open("Invasive Removal Volunteers").sheet1  # Replace with your Google Sheet name
+        google_data = sheet.get_all_records()
+        total_volunteers_from_forms = len(google_data)
+    except Exception as e:
+        st.warning("Could not connect to Google Forms. Using sample data.")
+        total_volunteers_from_forms = 50  # Fallback value
     
     # Data input
     st.subheader("🌿 Submit New Removal Event")
@@ -148,6 +183,7 @@ elif page == 2:
         st.metric("Number of Events", removal_data['events'].sum())
     with col2:
         st.metric("Total Attendees", removal_data['attendees'].sum())
+        st.metric("Volunteers from Google Forms", total_volunteers_from_forms)
     
     # Map with lines
     st.subheader("🌍 Map of Removal Events in Shelby Park")
@@ -165,7 +201,7 @@ elif page == 2:
                 'ScatterplotLayer',
                 data=removal_data,
                 get_position='[lon, lat]',
-                get_color='[139, 195, 74, 160]',  # Light green points
+                get_color='[139, 195, 74, 160]',
                 get_radius=200,
             ),
             pdk.Layer(
@@ -173,7 +209,7 @@ elif page == 2:
                 data=pd.DataFrame([{'start': d['start'], 'end': d['end']} for d in line_data]),
                 get_source_position='start',
                 get_target_position='end',
-                get_color='[76, 175, 80, 160]',  # Forest green lines
+                get_color='[76, 175, 80, 160]',
                 get_width=5,
             )
         ]
@@ -183,7 +219,6 @@ elif page == 2:
 elif page == 3:
     st.title("🌴 Surveys and Strategic Plan Dashboard")
     
-    # Sample survey data
     survey_options = ["Support for Bike Lanes", "Support for More Trees", "Support for Park Expansion"]
     survey_data = {
         "Support for Bike Lanes": np.random.randint(0, 11, 100),
@@ -199,9 +234,10 @@ elif page == 3:
         names=survey_results.index,
         values=survey_results.values,
         title=f"Results: {survey_choice} (0-10 Scale)",
-        color_discrete_sequence=px.colors.sequential.Greens  # Green-themed pie chart
+        color_discrete_sequence=px.colors.sequential.Greens
     )
+    fig.update_layout(plot_bgcolor='rgba(232, 245, 233, 0.6)', paper_bgcolor='rgba(0,0,0,0)')
     st.plotly_chart(fig)
     
     st.write("Raw Data Distribution:")
-    st.bar_chart(survey_results, color="#A5D6A7")  # Light green bars
+    st.bar_chart(survey_results, color="#A5D6A7")
