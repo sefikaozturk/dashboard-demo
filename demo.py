@@ -3,8 +3,13 @@ import pandas as pd
 import numpy as np
 import pydeck as pdk
 import plotly.express as px
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+try:
+    import gspread
+    from oauth2client.service_account import ServiceAccountCredentials
+    GOOGLE_SHEETS_AVAILABLE = True
+except ImportError:
+    GOOGLE_SHEETS_AVAILABLE = False
+    st.warning("Google Sheets integration unavailable. Install gspread and oauth2client.")
 
 # Must be the first Streamlit command
 st.set_page_config(page_title="East Nashville Parks Dashboard", layout="wide")
@@ -12,15 +17,12 @@ st.set_page_config(page_title="East Nashville Parks Dashboard", layout="wide")
 # Enhanced Custom CSS for styling
 st.markdown("""
     <style>
-    /* Light green background for the entire app */
     .stApp {
-        background-color: #E8F5E9; /* Light green */
+        background-color: #E8F5E9;
         font-family: 'Arial', sans-serif;
     }
-    
-    /* Sidebar with gradient forest theme */
     .css-1d391kg {
-        background: linear-gradient(to bottom, #4CAF50, #2E7D32); /* Forest green gradient */
+        background: linear-gradient(to bottom, #4CAF50, #2E7D32);
         color: white;
         border-radius: 10px;
         padding: 10px;
@@ -29,17 +31,13 @@ st.markdown("""
         color: white;
         font-weight: bold;
     }
-    
-    /* Headers with elegant earthy tones */
     h1, h2, h3 {
-        color: #4A2F1F; /* Richer brown */
+        color: #4A2F1F;
         font-family: 'Georgia', serif;
         text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
     }
-    
-    /* Buttons with natural elegance */
     .stButton>button {
-        background-color: #81C784; /* Medium green */
+        background-color: #81C784;
         color: white;
         border: 2px solid #4CAF50;
         border-radius: 8px;
@@ -48,20 +46,16 @@ st.markdown("""
         transition: all 0.3s ease;
     }
     .stButton>button:hover {
-        background-color: #66BB6A; /* Darker green */
+        background-color: #66BB6A;
         transform: scale(1.05);
     }
-    
-    /* Metric boxes with refined styling */
     .stMetric {
-        background-color: rgba(241, 248, 233, 0.8); /* Semi-transparent light green */
+        background-color: rgba(241, 248, 233, 0.8);
         border: 1px solid #A5D6A7;
         border-radius: 10px;
         padding: 15px;
         box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
     }
-    
-    /* Main content with subtle leaf pattern and shadow */
     .main .block-container {
         background-image: url('https://www.transparenttextures.com/patterns/green-leaves.png');
         background-size: 200px;
@@ -69,10 +63,8 @@ st.markdown("""
         padding: 20px;
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     }
-    
-    /* Chart backgrounds blending with app */
     .js-plotly-plot .plotly .main-svg {
-        background-color: rgba(232, 245, 233, 0.6) !important; /* Semi-transparent to blend */
+        background-color: rgba(232, 245, 233, 0.6) !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -84,7 +76,6 @@ PAGES = {
     "Surveys and Strategic Plan": 3
 }
 
-# Sidebar for page selection
 st.sidebar.title("🌿 Navigation")
 selection = st.sidebar.radio("Go to", list(PAGES.keys()))
 page = PAGES[selection]
@@ -144,17 +135,21 @@ if page == 1:
 elif page == 2:
     st.title("🌲 Invasive Plant Removal Data and Mapping")
     
-    # Google Forms integration (example setup)
-    try:
-        scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-        creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
-        client = gspread.authorize(creds)
-        sheet = client.open("Invasive Removal Volunteers").sheet1  # Replace with your Google Sheet name
-        google_data = sheet.get_all_records()
-        total_volunteers_from_forms = len(google_data)
-    except Exception as e:
-        st.warning("Could not connect to Google Forms. Using sample data.")
-        total_volunteers_from_forms = 50  # Fallback value
+    # Google Forms integration with fallback
+    if GOOGLE_SHEETS_AVAILABLE:
+        try:
+            scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+            creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
+            client = gspread.authorize(creds)
+            sheet = client.open("Invasive Removal Volunteers").sheet1  # Replace with your Google Sheet name
+            google_data = sheet.get_all_records()
+            total_volunteers_from_forms = len(google_data)
+        except Exception as e:
+            st.warning(f"Failed to connect to Google Forms: {str(e)}. Using default value.")
+            total_volunteers_from_forms = 50
+    else:
+        st.warning("Google Sheets integration not available. Using default value.")
+        total_volunteers_from_forms = 50
     
     # Data input
     st.subheader("🌿 Submit New Removal Event")
